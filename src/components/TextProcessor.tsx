@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { RotateCw, Zap, Shuffle, Sparkles, FileText, Check, Copy } from 'lucide-react';
+import { supabase } from '../lib/supabase'; // Import supabase
+import { useAuthStore } from '../store/authStore'; // Import auth store
 
 // Mock function to simulate text humanizing
 const humanizeText = (text: string, options: any): string => {
@@ -41,18 +43,78 @@ const TextProcessor: React.FC = () => {
     creativity: 0.5,
     simplicity: 0.3,
   });
+  const { user } = useAuthStore(); // Get user from auth store
 
-  const processText = () => {
+  const handleSaveRewrite = async (input: string, output: string) => {
+    if (!user) {
+      // This case should ideally not be hit if buttons are disabled for non-logged-in users,
+      // but it's a good safeguard.
+      console.log("User not logged in. Cannot save rewrite.");
+      return;
+    }
+    if (!output) {
+      console.log("No output text to save.");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('rewrites') // Make sure 'rewrites' is your table name
+        .insert([{ user_id: user.id, input_text: input, output_text: output }]);
+      
+      if (error) throw error;
+      console.log('Rewrite saved successfully!');
+      // Optionally, provide user feedback e.g., a toast notification
+      // import toast from 'react-hot-toast';
+      // toast.success('Rewrite saved to your dashboard!');
+    } catch (error: any) {
+      console.error('Error saving rewrite:', error);
+      // Optionally, provide user feedback for the error
+      // toast.error(`Failed to save rewrite: ${error.message}`);
+    }
+  };
+
+  const processText = async () => { // Make processText async if it wasn't already
     if (!inputText.trim()) return;
     
     setIsProcessing(true);
     
     // Simulate API delay
-    setTimeout(() => {
-      const result = humanizeText(inputText, options);
-      setOutputText(result);
-      setIsProcessing(false);
-    }, 800);
+    // In a real app, your API call would be here
+    await new Promise(resolve => setTimeout(resolve, 800)); 
+    
+    const result = humanizeText(inputText, options);
+    setOutputText(result);
+    setIsProcessing(false);
+
+    // Save rewrite if user is logged in and output is generated
+    if (user && result) {
+      await handleSaveRewrite(inputText, result);
+    }
+  };
+
+  const handleRandomStyleAndProcess = async () => {
+    if (!inputText.trim()) return;
+    
+    const randomOptions = {
+      tone: ['casual', 'formal', 'friendly', 'professional'][Math.floor(Math.random() * 4)],
+      fluency: Math.random(),
+      creativity: Math.random(),
+      simplicity: Math.random(),
+    };
+    setOptions(randomOptions);
+    
+    setIsProcessing(true);
+    
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    const result = humanizeText(inputText, randomOptions); // Use randomOptions here
+    setOutputText(result);
+    setIsProcessing(false);
+
+    if (user && result) {
+      await handleSaveRewrite(inputText, result);
+    }
   };
 
   const handleCopy = () => {
@@ -200,11 +262,11 @@ const TextProcessor: React.FC = () => {
         <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
           <button
             className="flex items-center justify-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-full transition-colors duration-200 shadow-md hover:shadow-lg"
-            onClick={processText}
+            onClick={processText} // Uses the updated processText function
             disabled={!inputText.trim() || isProcessing}
           >
-            {isProcessing ? (
-              <RotateCw className="animate-spin mr-2\" size={18} />
+            {isProcessing && options.tone === options.tone /* Basic check to see if it's not random style */ ? (
+              <RotateCw className="animate-spin mr-2" size={18} />
             ) : (
               <Sparkles className="mr-2" size={18} />
             )}
@@ -213,19 +275,14 @@ const TextProcessor: React.FC = () => {
           
           <button
             className="flex items-center justify-center px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-full transition-colors duration-200 shadow-md hover:shadow-lg"
-            onClick={() => {
-              if (!inputText.trim()) return;
-              setOptions({
-                tone: ['casual', 'formal', 'friendly', 'professional'][Math.floor(Math.random() * 4)],
-                fluency: Math.random(),
-                creativity: Math.random(),
-                simplicity: Math.random(),
-              });
-              processText();
-            }}
+            onClick={handleRandomStyleAndProcess} // Use the new handler for random style
             disabled={!inputText.trim() || isProcessing}
           >
-            <Shuffle className="mr-2" size={18} />
+            {isProcessing && options.tone !== options.tone /* This logic for spinner might need refinement if both can be active */ ? (
+              <RotateCw className="animate-spin mr-2" size={18} />
+            ) : (
+              <Shuffle className="mr-2" size={18} />
+            )}
             Random Style
           </button>
           

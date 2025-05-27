@@ -18,7 +18,7 @@ const SignupPage: React.FC = () => {
 
     try {
       await signUp(email, password);
-      navigate('/dashboard');
+      navigate('/'); // Changed from '/dashboard' to '/'
     } catch (err) {
       setError('Error creating account. Please try again.');
     } finally {

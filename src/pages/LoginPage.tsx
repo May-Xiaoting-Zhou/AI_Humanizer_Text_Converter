@@ -18,7 +18,7 @@ const LoginPage: React.FC = () => {
 
     try {
       await signIn(email, password);
-      navigate('/dashboard');
+      navigate('/'); // Changed from '/dashboard' to '/'
     } catch (err) {
       setError('Invalid email or password');
     } finally {
